@@ -13,8 +13,7 @@ public class Poll {
     private long id;
     private String title;
     private String date;
-    @OneToMany(mappedBy = "poll")
-    @JsonIgnore() // Avoiding Recursive JSON response
+    @OneToMany(mappedBy = "poll", fetch=FetchType.EAGER)
     private List<Option> options;
 
     public long getId() {

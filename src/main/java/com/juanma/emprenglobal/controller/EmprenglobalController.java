@@ -1,6 +1,7 @@
 package com.juanma.emprenglobal.controller;
 
 import com.juanma.emprenglobal.model.*;
+import org.checkerframework.checker.nullness.Opt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -19,7 +20,7 @@ import java.security.InvalidParameterException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@CrossOrigin(origins = "http://localhost:3000", maxAge = 3600)
+@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController()
 @RequestMapping("/emprenglobal")
 public class EmprenglobalController {
@@ -198,22 +199,22 @@ public class EmprenglobalController {
 
     @PostMapping("/news")
     @PreAuthorize("hasAuthority('ROLE_USER')")
-    public ResponseEntity<Object> putComment(@RequestParam("id") long id,
-                                             @RequestParam("header") String header,
-                                             @RequestParam("date") String date,
-                                             @RequestParam("text") String text,
-                                             @RequestParam("file") MultipartFile file) {
+    public ResponseEntity<Object> putComment(@RequestPart("header") String header,
+                                             @RequestPart("date") String date,
+                                             @RequestPart("text") String text,
+                                             @RequestPart("file") MultipartFile file) {
         News news = new News();
-        news.setId(id);
         news.setHeader(header);
         news.setDate(date);
         news.setText(text);
-        news.setPhotoPath(uploadFileService.uploadPhoto(id, file, PicEntities.News));
-        Optional<News> optNews = newsRepository.findById(id);
+        news.setPhotoPath("/fake/path");
+        news = newsRepository.save(news);
+
+        news.setPhotoPath(uploadFileService.uploadPhoto(news.getId(), file, PicEntities.News));
         newsRepository.save(news);
 
         return new ResponseEntity<>(
-                optNews.isPresent() ? "NEWS UPDATED" : "NEWS CREATED",
+                "NEWS CREATED",
                 HttpStatus.OK);
     }
 
@@ -263,27 +264,26 @@ public class EmprenglobalController {
 
     @PostMapping("/event")
     @PreAuthorize("hasAuthority('ROLE_USER')")
-    public ResponseEntity<Object> putComment(@RequestParam("id") long id,
-                                             @RequestParam("header") String header,
-                                             @RequestParam("date") String date,
-                                             @RequestParam("location") String location,
-                                             @RequestParam("text") String text,
-                                             @RequestParam("file") MultipartFile file) {
+    public ResponseEntity<Object> putEvent(@RequestPart("header") String header,
+                                           @RequestPart("date") String date,
+                                           @RequestPart("location") String location,
+                                           @RequestPart("text") String text,
+                                           @RequestPart("file") MultipartFile file) {
         Event event = new Event();
-        event.setId(id);
         event.setHeader(header);
         event.setDate(date);
-        event.setText(text);
         event.setLocation(location);
-        event.setPhotoPath(uploadFileService.uploadPhoto(id, file, PicEntities.Events));
-        Optional<Event> optEvent = eventRepository.findById(id);
+        event.setText(text);
+        event.setPhotoPath("/fake/path");
+        event = eventRepository.save(event);
+
+        event.setPhotoPath(uploadFileService.uploadPhoto(event.getId(), file, PicEntities.Events));
         eventRepository.save(event);
 
         return new ResponseEntity<>(
-                optEvent.isPresent() ? "EVENT UPDATED" : "EVENT CREATED",
+                "EVENT CREATED",
                 HttpStatus.OK);
     }
-
 
     @DeleteMapping("/event/{id}")
     @PreAuthorize("hasAuthority('ROLE_USER')")
@@ -390,18 +390,22 @@ public class EmprenglobalController {
 
     @PostMapping("/poll")
     @PreAuthorize("hasAuthority('ROLE_USER')")
-    public ResponseEntity<Object> putPoll(@RequestParam("id") long id,
-                                             @RequestParam("title") String title,
-                                             @RequestParam("date") String date) {
+    public ResponseEntity<Object> putPoll(@RequestBody Map<String, Object> payload) {
         Poll poll = new Poll();
-        poll.setId(id);
-        poll.setTitle(title);
-        poll.setDate(date);
-        Optional<Poll> optPoll = pollRepository.findById(id);
-        pollRepository.save(poll);
+        poll.setTitle((String) payload.get("title"));
+        poll.setDate((String) payload.get("date"));
+        poll = pollRepository.save(poll);
+
+        List<String> titles = (List<String>) payload.get("options");
+        for ( String title : titles) {
+            Option option = new Option();
+            option.setTitle(title);
+            option.setPoll(poll);
+            optionRepository.save(option);
+        }
 
         return new ResponseEntity<>(
-                optPoll.isPresent() ? "POLL UPDATED" : "POLL CREATED",
+                "POLL CREATED",
                 HttpStatus.OK);
     }
 
@@ -439,18 +443,31 @@ public class EmprenglobalController {
 
     @PostMapping("/option")
     @PreAuthorize("hasAuthority('ROLE_USER')")
-    public ResponseEntity<Object> putOption(@RequestParam("id") long id,
-                                             @RequestParam("title") String title,
-                                             @RequestParam("pollId") long pollId) {
+    public ResponseEntity<Object> putOption(@RequestBody Map<String, Object> payload) {
         Option option = new Option();
-        option.setId(id);
-        option.setTitle(title);
-        option.setPoll(pollRepository.findById(pollId).orElseThrow(InvalidParameterException::new));
-        Optional<Option> optOption = optionRepository.findById(id);
+        option.setId((long)(Integer) payload.get("id"));
+        option.setTitle((String) payload.get("title"));
+        option.setPoll(pollRepository.findById(
+               (long)((Integer) payload.get("poll")))
+               .orElseThrow(InvalidParameterException::new));
         optionRepository.save(option);
 
         return new ResponseEntity<>(
-                optOption.isPresent() ? "OPTION UPDATED" : "OPTION CREATED",
+                "OPTION UPDATED",
+                HttpStatus.OK);
+    }
+
+    @PostMapping("/vote")
+    @PreAuthorize("hasAuthority('ROLE_USER')")
+    public ResponseEntity<Object> putVote(@RequestBody Map<String, Object> payload) {
+
+        Optional<Option> optionalOption = optionRepository.findById((long)(Integer) payload.get("id"));
+        Option option = optionalOption.orElseThrow(InvalidParameterException::new);
+        option.setVotes(option.getVotes() + 1);
+        optionRepository.save(option);
+
+        return new ResponseEntity<>(
+                "OPTION VOTED",
                 HttpStatus.OK);
     }
 
@@ -463,6 +480,26 @@ public class EmprenglobalController {
             return "OPTION DELETED";
         }
         return "OPTION COMMENT ID";
+    }
+
+    /*STUFFS*/
+    @GetMapping("/stuffs/{img_name}")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<Resource> getStuffImage(@PathVariable("img_name") String imageName) {
+        Path path = Paths.get(uploadFileService.getRootFolder() + "Stuffs/" + imageName);
+
+        HttpHeaders header = new HttpHeaders();
+        header.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + path.getFileName());
+        header.add("Cache-Control", "no-cache, no-store, must-revalidate");
+        header.add("Pragma", "no-cache");
+        header.add("Expires", "0");
+
+        FileSystemResource resource = new FileSystemResource(path);
+        return ResponseEntity.ok()
+                .headers(header)
+                .contentLength(path.toFile().length())
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(resource);
     }
 
     private Set<Authority> boundAuthorities(String authorities) {

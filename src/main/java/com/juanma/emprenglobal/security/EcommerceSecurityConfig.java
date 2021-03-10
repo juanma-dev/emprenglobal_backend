@@ -45,7 +45,7 @@ public class EcommerceSecurityConfig extends WebSecurityConfigurerAdapter {
             //.csrf().csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()).and()  // *(Explained on the bottom)
                 .cors().configurationSource(request -> {
                     var cors = new CorsConfiguration();
-                    cors.setAllowedOrigins(List.of("http://localhost:3000", "http://127.0.0.1:3000"));
+                    cors.setAllowedOrigins(List.of("*"));
                     cors.setAllowedMethods(List.of("GET","POST", "PUT", "DELETE", "OPTIONS"));
                     cors.setAllowedHeaders(List.of("*"));
                     cors.setExposedHeaders(List.of("Authorization"));
@@ -64,7 +64,8 @@ public class EcommerceSecurityConfig extends WebSecurityConfigurerAdapter {
                         "index",
                         "/login",
                         "/emprenglobal/{.*s}",
-                        "/emprenglobal/{[A-Z][a-z]+}/{\\d+}/*"
+                        "/emprenglobal/{[A-Z][a-z]+}/{\\d+}/*",
+                        "/emprenglobal/stuffs/*"
                 ).permitAll()
                 .antMatchers("/api/**").hasRole("USER") //This is new here. It's used when create all Enums, roles and users.
                 .anyRequest()

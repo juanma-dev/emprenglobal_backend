@@ -13,6 +13,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
     private String username;
+    @JsonIgnore() //don't return the password
     private String password;
     private String email;
     private String photoPath;
